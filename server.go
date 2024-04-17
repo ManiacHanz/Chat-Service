@@ -3,11 +3,19 @@ package main
 import (
 	"fmt"
 	"net"
+	"sync"
 )
 
 type Server struct {
 	Ip   string
 	Port int
+
+	// 在线用户列表
+	OnlineMap map[string]*User
+	mapLock   sync.RWMutex
+
+	// 消息广播的channel
+	Message chan string
 }
 
 // 创建一个server的接口

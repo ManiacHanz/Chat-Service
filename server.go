@@ -12,7 +12,8 @@ type Server struct {
 
 	// 在线用户列表
 	OnlineMap map[string]*User
-	mapLock   sync.RWMutex
+	// 有关异步流程（这里是channel)里加入同步机制就是sync锁
+	mapLock sync.RWMutex
 
 	// 消息广播的channel
 	Message chan string
@@ -21,16 +22,56 @@ type Server struct {
 // 创建一个server的接口
 func NewServer(ip string, port int) *Server {
 	server := &Server{
-		Ip:   ip,
-		Port: port,
+		Ip:        ip,
+		Port:      port,
+		OnlineMap: make(map[string]*User),
+		Message:   make(chan string),
 	}
 
 	return server
 }
 
+// 监听Message Channel， 然后发给其他用户自己的Channel
+// 这里的流程是，用户上线之后在Server端发送给Server端的Message Channel
+// 然后监听Message Channel，有的话就发送给所有用户自己的channel
+// 然后用户自己在进行监听，并从里面取消息
+func (this *Server) ListenMessage() {
+	// 外层相当于while循环
+	for {
+		msg := <-this.Message
+		fmt.Println("ListenMessage: ", msg)
+		this.mapLock.Lock()
+		// 遍历所有在线用户，然后发送消息到管道
+		for _, cli := range this.OnlineMap {
+			cli.C <- msg
+		}
+		this.mapLock.Unlock()
+
+	}
+
+}
+
+// 广播消息的方法
+func (this *Server) Broadcast(user *User, msg string) {
+	message := "[" + user.Addr + "]" + user.Name + ":" + msg
+	fmt.Println("sended: " + message)
+	this.Message <- message
+}
+
 func (this *Server) Handler(conn net.Conn) {
 	// 当前连接的业务
-	fmt.Println("链接建立成功")
+	fmt.Println("链接建立成功1", conn.RemoteAddr().String())
+	user := NewUser(conn)
+
+	// 用户上线，将用户加入onlineMap
+	this.mapLock.Lock()
+	this.OnlineMap[user.Name] = user
+	this.mapLock.Unlock()
+	// 广播当前用户上线消息
+	this.Broadcast(user, "已上线")
+
+	// 阻塞，让程序挂起，而不是执行完了就退出
+	select {}
 }
 
 // 启动服务器的接口
@@ -42,12 +83,17 @@ func (this *Server) Start() {
 		return
 	}
 
+	fmt.Println("Server starting...")
+
 	// close listen socket
 	defer listener.Close()
 
+	// 监听Message Channel, 并执行后续操作
+	go this.ListenMessage()
+
 	for {
 
-		// accept
+		// accept   表示有链接接入
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("listener accept err: ", err)

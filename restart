@@ -1,0 +1,5 @@
+# !/usr/bin/shell
+
+
+go build -o server main.go server.go user.go
+./server

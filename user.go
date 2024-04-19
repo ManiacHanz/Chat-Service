@@ -1,6 +1,8 @@
 package main
 
-import "net"
+import (
+	"net"
+)
 
 type User struct {
 	Name string
@@ -11,16 +13,13 @@ type User struct {
 
 // 创建一个用户的api
 func NewUser(conn net.Conn) *User {
-	userAddr := conn.RemoteAd // RemoteAddr()?
-
 	user := &User{
-		Name: userAddr, // 默认以客户端地址为用户名
-		Addr: userAddr,
+		Name: conn.RemoteAddr().String(), // 默认以客户端地址为用户名
+		Addr: conn.RemoteAddr().String(),
 		C:    make(chan string),
 		conn: conn,
 	}
-
-	// 启动监听
+	// 	// 启动监听
 	go user.ListenMessage()
 
 	return user

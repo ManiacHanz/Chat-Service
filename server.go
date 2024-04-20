@@ -62,14 +62,11 @@ func (this *Server) Broadcast(user *User, msg string) {
 func (this *Server) Handler(conn net.Conn) {
 	// 当前连接的业务
 	fmt.Println("链接建立成功1", conn.RemoteAddr().String())
-	user := NewUser(conn)
+	// 传入server实例，方便user实例调用
+	user := NewUser(conn, this)
 
-	// 用户上线，将用户加入onlineMap
-	this.mapLock.Lock()
-	this.OnlineMap[user.Name] = user
-	this.mapLock.Unlock()
-	// 广播当前用户上线消息
-	this.Broadcast(user, "已上线")
+	// 用户上线
+	user.Online()
 
 	// 接受客户端发送的消息
 	go func() {
@@ -78,7 +75,7 @@ func (this *Server) Handler(conn net.Conn) {
 			n, err := conn.Read(buf)
 			// 断开连接的时候这个消息是0
 			if n == 0 {
-				this.Broadcast(user, "下线")
+				user.Offline()
 				return
 			}
 
@@ -92,7 +89,7 @@ func (this *Server) Handler(conn net.Conn) {
 			msg := string(buf[:n-1])
 
 			//广播
-			this.Broadcast(user, msg)
+			user.DoMessage(msg)
 		}
 	}()
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -69,6 +70,31 @@ func (this *Server) Handler(conn net.Conn) {
 	this.mapLock.Unlock()
 	// 广播当前用户上线消息
 	this.Broadcast(user, "已上线")
+
+	// 接受客户端发送的消息
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := conn.Read(buf)
+			// 断开连接的时候这个消息是0
+			if n == 0 {
+				this.Broadcast(user, "下线")
+				return
+			}
+
+			if err != nil && err != io.EOF {
+				fmt.Println("Conn Read Err: ", err)
+				return
+			}
+
+			// 提取消息 这个是给nc链接处理
+			// 去掉最后一位，相当于str(0, length-1)
+			msg := string(buf[:n-1])
+
+			//广播
+			this.Broadcast(user, msg)
+		}
+	}()
 
 	// 阻塞，让程序挂起，而不是执行完了就退出
 	select {}

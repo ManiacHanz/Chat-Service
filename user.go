@@ -7,7 +7,7 @@ import (
 type User struct {
 	Name string
 	Addr string
-	C    chan string
+	C    chan string // 客户端的channel
 	conn net.Conn
 }
 

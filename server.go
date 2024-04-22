@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -68,6 +69,9 @@ func (this *Server) Handler(conn net.Conn) {
 	// 用户上线
 	user.Online()
 
+	// 监听用户是否活跃的channel
+	isLive := make(chan bool)
+
 	// 接受客户端发送的消息
 	go func() {
 		buf := make([]byte, 4096)
@@ -90,11 +94,41 @@ func (this *Server) Handler(conn net.Conn) {
 
 			//广播
 			user.DoMessage(msg)
+
+			// 用户发了任意消息，代表当前用户是一个活跃的，刷新一下isLive的消息
+			isLive <- true
 		}
 	}()
 
-	// 阻塞，让程序挂起，而不是执行完了就退出
-	select {}
+	// 当前handler阻塞
+	for {
+		select {
+		case <-isLive:
+			// 这里收到isLive刷新了消息，代表用户活跃（发送了消息）
+			// 做刷新定时器的操作
+			// 这里不用写刷新定时的逻辑，是因为在golang中，如果这里不写逻辑，就会走到写一个case的条件语句中（注意：是条件语句）
+			// 那么走到条件以后，调用time包，则表示刷新了定时器
+		case <-time.After(time.Second * 10):
+			// 已经超时
+			// 关闭当前User
+			user.SendMsgToSelf("你被踢了\n")
+
+			// 关闭连接
+			conn.Close()
+
+			// 从在线列表里剔除
+			this.mapLock.Lock()
+			delete(this.OnlineMap, user.Name)
+			this.mapLock.Unlock()
+
+			// 销毁用的资源  关闭channel
+			close(user.C)
+			close(isLive)
+
+			// 退出当前的handler循环
+			return
+		}
+	}
 }
 
 // 启动服务器的接口

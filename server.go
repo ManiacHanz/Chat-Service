@@ -108,7 +108,7 @@ func (this *Server) Handler(conn net.Conn) {
 			// 做刷新定时器的操作
 			// 这里不用写刷新定时的逻辑，是因为在golang中，如果这里不写逻辑，就会走到写一个case的条件语句中（注意：是条件语句）
 			// 那么走到条件以后，调用time包，则表示刷新了定时器
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Second * 1000):
 			// 已经超时
 			// 关闭当前User
 			user.SendMsgToSelf("你被踢了\n")

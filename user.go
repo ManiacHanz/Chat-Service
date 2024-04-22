@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"strings"
 )
 
 type User struct {
@@ -57,10 +58,28 @@ func (this *User) DoMessage(msg string) {
 	if msg == "who" {
 		this.server.mapLock.Lock()
 		for _, user := range this.server.OnlineMap {
-			message := "user [" + user.Name + "]在线" + "\n"
+			message := "user [" + user.Addr + "]" + user.Name + ":在线" + "\n"
 			this.SendMsgToSelf(message)
 		}
 		this.server.mapLock.Unlock()
+	} else if len(msg) > 7 && msg[:7] == "rename|" {
+		// 消息格式: rename|zhangsan
+		newName := strings.Split(msg, "|")[1]
+
+		// 判断name是否㛮
+		_, ok := this.server.OnlineMap[newName]
+		if ok {
+			this.SendMsgToSelf("当前用户名已被使用\n")
+		} else {
+			this.server.mapLock.Lock()
+			delete(this.server.OnlineMap, this.Name)
+			this.server.OnlineMap[newName] = this
+			this.server.mapLock.Unlock()
+
+			this.Name = newName
+			this.SendMsgToSelf("您已成功修改用户名为" + newName + "\n")
+		}
+
 	} else {
 		this.server.Broadcast(this, msg)
 	}

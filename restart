@@ -3,3 +3,10 @@
 
 go build -o server main.go server.go user.go
 ./server
+
+go build -o client client.go
+./client
+
+
+# osascript -e 'tell application "Visual Studio Code" to activate' -e 'tell application "System Events" to tell process "Code" to keystroke "\\" using {command down}'
+# osascript -e 'tell application "Visual Studio Code" to activate' -e 'tell application "System Events" to tell process "Code" to keystroke "→" using {command down, option down}'

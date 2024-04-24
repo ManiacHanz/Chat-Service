@@ -1,9 +1,12 @@
+// cli工具
 package main
 
 import (
 	"flag"
 	"fmt"
+	"io"
 	"net"
+	"os"
 )
 
 type Client struct {
@@ -11,12 +14,15 @@ type Client struct {
 	ServerPort int
 	Name       string
 	conn       net.Conn
+	flag       int
 }
 
 func NewClient(serverIp string, serverPort int) *Client {
 	client := &Client{
 		ServerIp:   serverIp,
 		ServerPort: serverPort,
+		// 默认值
+		flag: 999,
 	}
 
 	// 链接server
@@ -31,6 +37,69 @@ func NewClient(serverIp string, serverPort int) *Client {
 	return client
 }
 
+// 处理server的回应消息
+// 直接显示标准输出
+func (client *Client) DealResponse() {
+	// 一旦client.conn有数据，就直接copy到stdout标准输出上，永久阻塞监听
+	io.Copy(os.Stdout, client.conn)
+}
+
+func (client *Client) menu() bool {
+	var flag int
+
+	fmt.Println("1. 公聊模式")
+	fmt.Println("2. 私聊模式")
+	fmt.Println("3. 改名模式")
+	fmt.Println("0. 退出")
+	// 这里会阻塞
+	fmt.Scanln(&flag)
+
+	if flag >= 0 && flag <= 3 {
+		client.flag = flag
+		return true
+	} else {
+		fmt.Println(">>>>>> 请输入合法范围内的数字<<<<<<<<")
+		return false
+	}
+
+}
+
+// 更新用户名
+func (client *Client) UpdateName() bool {
+	fmt.Println(">>>>>> 请输入用户名：")
+	fmt.Scanln(&client.Name)
+
+	sendMsg := "rename|" + client.Name + "\n"
+	_, err := client.conn.Write([]byte(sendMsg))
+	if err != nil {
+		fmt.Println("conn.Write.err: ", err)
+		return false
+	}
+
+	return true
+}
+
+func (client *Client) Run() {
+	for client.flag != 0 {
+		for client.menu() != true {
+
+		}
+		/// 根据不同的模式处理不同的业务
+		switch client.flag {
+		case 1:
+			// 公聊模式
+			break
+		case 2:
+			// 私聊模式
+			break
+		case 3:
+			// 更新用户名
+			client.UpdateName()
+			break
+		}
+	}
+}
+
 var ip string
 var port int
 
@@ -41,6 +110,7 @@ func init() {
 }
 
 func main() {
+	// 命令行解析参数
 	flag.Parse()
 
 	client := NewClient(ip, port)
@@ -51,6 +121,8 @@ func main() {
 
 	fmt.Println(">>>>> 链接服务器成功....")
 
+	//单独开一个goroutine来处理服务器输出
+	go client.DealResponse()
 	// 启动客户端业务
-	select {}
+	client.Run()
 }
